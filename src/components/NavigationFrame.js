@@ -21,7 +21,7 @@ import SolanaIcon from './SolanaIcon';
 import CodeIcon from '@material-ui/icons/Code';
 import Tooltip from '@material-ui/core/Tooltip';
 import AddAccountDialog from './AddAccountDialog';
-import DeleteAccountDialog from "./DeleteAccountDialog";
+import DeleteAccountDialog from './DeleteAccountDialog';
 
 const useStyles = makeStyles((theme) => ({
   content: {
@@ -219,12 +219,16 @@ function WalletSelector() {
           </ListItemIcon>
           Add Account
         </MenuItem>
-        <MenuItem onClick={() => {
-          setAnchorEl(null);
-          setIsDeleteAccountEnabled(false);
-          setDeleteAccountOpen(true)
-          setTimeout(() => {setIsDeleteAccountEnabled(true)}, 3000)
-        }}>
+        <MenuItem
+          onClick={() => {
+            setAnchorEl(null);
+            setIsDeleteAccountEnabled(false);
+            setDeleteAccountOpen(true);
+            setTimeout(() => {
+              setIsDeleteAccountEnabled(true);
+            }, 3000);
+          }}
+        >
           <ListItemIcon className={classes.menuItemIcon}>
             <ExitToApp fontSize="small" />
           </ListItemIcon>

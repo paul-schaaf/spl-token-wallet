@@ -173,7 +173,10 @@ export async function transferTokens({
   const destinationAccountInfo = await connection.getAccountInfo(
     destinationPublicKey,
   );
-  if (!!destinationAccountInfo && destinationAccountInfo.owner.equals(TOKEN_PROGRAM_ID)) {
+  if (
+    !!destinationAccountInfo &&
+    destinationAccountInfo.owner.equals(TOKEN_PROGRAM_ID)
+  ) {
     return await transferBetweenSplTokenAccounts({
       connection,
       owner,

@@ -1,4 +1,4 @@
-import React, {useContext, useMemo, useState} from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import * as bip32 from 'bip32';
 import * as bs58 from 'bs58';
 import {
@@ -30,6 +30,11 @@ import { useTokenName } from './tokens/names';
 import { refreshCache, useAsyncData } from './fetch-loop';
 import { getUnlockedMnemonicAndSeed, walletSeedChanged } from './wallet-seed';
 
+export const DERIVATION_PATH = {
+  deprecated: undefined,
+  bip44: 'bip44',
+};
+
 const DEFAULT_WALLET_SELECTOR = {
   walletIndex: 0,
   importedPubkey: undefined,
@@ -41,11 +46,30 @@ export class Wallet {
     this.account = account;
   }
 
-  static getAccountFromSeed(seed, walletIndex, accountIndex = 0) {
-    const derivedSeed = bip32
-      .fromSeed(seed)
-      .derivePath(`m/501'/${walletIndex}'/0/${accountIndex}`).privateKey;
+  static getAccountFromSeed(
+    seed,
+    walletIndex,
+    derivationPath = undefined,
+    accountIndex = 0,
+  ) {
+    const path = Wallet.derivationPath(
+      walletIndex,
+      derivationPath,
+      accountIndex,
+    );
+    const derivedSeed = bip32.fromSeed(seed).derivePath(path).privateKey;
     return new Account(nacl.sign.keyPair.fromSeed(derivedSeed).secretKey);
+  }
+
+  static derivationPath(walletIndex, derivationPath, accountIndex) {
+    switch (derivationPath) {
+      case DERIVATION_PATH.deprecated:
+        return `m/501'/${walletIndex}'/0/${accountIndex}`;
+      case DERIVATION_PATH.bip44:
+        return `m/44'/501'/${walletIndex}'/${accountIndex}`;
+      default:
+        throw new Error(`invalid derivation path: ${derivationPath}`);
+    }
   }
 
   get publicKey() {
@@ -122,7 +146,12 @@ const WalletContext = React.createContext(null);
 
 export function WalletProvider({ children }) {
   useListener(walletSeedChanged, 'change');
-  const { mnemonic, seed, importsEncryptionKey } = getUnlockedMnemonicAndSeed();
+  const {
+    mnemonic,
+    seed,
+    importsEncryptionKey,
+    derivationPath,
+  } = getUnlockedMnemonicAndSeed();
   const connection = useConnection();
 
   // `privateKeyImports` are accounts imported *in addition* to HD wallets
@@ -148,6 +177,7 @@ export function WalletProvider({ children }) {
         ? Wallet.getAccountFromSeed(
             Buffer.from(seed, 'hex'),
             walletSelector.walletIndex,
+            derivationPath,
           )
         : new Account(
             (() => {
@@ -168,6 +198,7 @@ export function WalletProvider({ children }) {
     walletSelector,
     privateKeyImports,
     importsEncryptionKey,
+    derivationPath,
   ]);
 
   function addAccount({ name, importedAccount }) {
@@ -191,11 +222,12 @@ export function WalletProvider({ children }) {
 
   const getWalletNames = () => {
     return JSON.stringify(
-      [...Array(walletCount).keys()]
-        .map(idx => localStorage.getItem(`name${idx}`))
+      [...Array(walletCount).keys()].map((idx) =>
+        localStorage.getItem(`name${idx}`),
+      ),
     );
-  }
-  const [walletNames, setWalletNames] = useState(getWalletNames())
+  };
+  const [walletNames, setWalletNames] = useState(getWalletNames());
   function setAccountName(selector, newName) {
     if (selector.importedPubkey) {
       let newPrivateKeyImports = { ...privateKeyImports };
@@ -214,7 +246,8 @@ export function WalletProvider({ children }) {
 
     const seedBuffer = Buffer.from(seed, 'hex');
     const derivedAccounts = [...Array(walletCount).keys()].map((idx) => {
-      let address = Wallet.getAccountFromSeed(seedBuffer, idx).publicKey;
+      let address = Wallet.getAccountFromSeed(seedBuffer, idx, derivationPath)
+        .publicKey;
       let name = localStorage.getItem(`name${idx}`);
       return {
         selector: { walletIndex: idx, importedPubkey: undefined },
@@ -251,7 +284,8 @@ export function WalletProvider({ children }) {
         setPrivateKeyImports,
         accounts,
         addAccount,
-        setAccountName
+        setAccountName,
+        derivationPath,
       }}
     >
       {children}
